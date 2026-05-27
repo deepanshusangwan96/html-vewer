@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live HTML Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d0f;
+    --surface: #141417;
+    --surface2: #1c1c21;
+    --border: #2a2a32;
+    --accent: #7c6dfa;
+    --accent2: #fa6d8a;
+    --green: #4ade80;
+    --text: #e8e6ff;
+    --muted: #6b6880;
+    --header-h: 52px;
+    --tabs-h: 38px;
+    --status-h: 28px;
+  }
+
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── HEADER ── */
+  header {
+    height: var(--header-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+  }
+
+  .logo-text {
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--green);
+    background: rgba(74, 222, 128, 0.1);
+    border: 1px solid rgba(74, 222, 128, 0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+  }
+
+  .live-dot {
+    width: 7px; height: 7px;
+    background: var(--green);
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 14px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.3px;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .btn-ghost:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: #3a3a45;
+  }
+
+  .btn-accent {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .btn-accent:hover {
+    background: #6a5cf0;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(124, 109, 250, 0.35);
+  }
+
+  .btn-accent:active { transform: translateY(0); }
+
+  /* ── TABS ── */
+  .tabs-row {
+    height: var(--tabs-h);
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: flex-end;
+    padding: 0 16px;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+
+  .tab {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 6px 16px 8px;
+    border-radius: 6px 6px 0 0;
+    cursor: pointer;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    position: relative;
+  }
+
+  .tab.active {
+    background: var(--bg);
+    color: var(--text);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+  }
+
+  .tab-dot { width: 6px; height: 6px; border-radius: 50%; }
+  .tab-dot.html { background: #f87171; }
+  .tab-dot.css  { background: #60a5fa; }
+  .tab-dot.js   { background: #facc15; }
+
+  /* ── MAIN LAYOUT ── */
+  .main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  /* ── EDITOR PANEL ── */
+  .editor-panel {
+    width: 50%;
+    min-width: 300px;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    background: var(--bg);
+    resize: horizontal;
+    overflow: auto;
+  }
+
+  .editor-wrap {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .line-numbers {
+    width: 44px;
+    flex-shrink: 0;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 14px 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+    text-align: right;
+    padding-right: 10px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  #editor {
+    flex: 1;
+    background: transparent;
+    color: #c8c0ff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    padding: 14px 14px 14px 12px;
+    border: none;
+    outline: none;
+    resize: none;
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow: auto;
+    tab-size: 2;
+    caret-color: var(--accent);
+  }
+
+  #editor::selection { background: rgba(124, 109, 250, 0.3); }
+
+  /* ── PREVIEW PANEL ── */
+  .preview-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    min-width: 200px;
+  }
+
+  .preview-topbar {
+    height: 36px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .browser-dots {
+    display: flex;
+    gap: 5px;
+  }
+
+  .browser-dots span {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .d1 { background: #ff5f57; }
+  .d2 { background: #febc2e; }
+  .d3 { background: #28c840; }
+
+  .url-bar {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  #preview-iframe {
+    flex: 1;
+    border: none;
+    width: 100%;
+    background: #fff;
+  }
+
+  /* ── STATUS BAR ── */
+  .statusbar {
+    height: var(--status-h);
+    background: var(--accent);
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    gap: 20px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.85);
+    flex-shrink: 0;
+  }
+
+  .status-item { display: flex; align-items: center; gap: 5px; }
+  .status-sep { color: rgba(255,255,255,0.3); }
+
+  /* ── RESIZE HANDLE ── */
+  .resize-handle {
+    width: 4px;
+    background: var(--border);
+    cursor: col-resize;
+    transition: background 0.2s;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+
+  .resize-handle:hover, .resize-handle.dragging { background: var(--accent); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a45; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 40px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 8px 18px;
+    border-radius: 20px;
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 999;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .main { flex-direction: column; }
+    .editor-panel { width: 100%; min-height: 40%; border-right: none; border-bottom: 1px solid var(--border); }
+    .preview-panel { min-height: 50%; }
+    .resize-handle { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div class="logo-text">Live<span>Editor</span></div>
+  </div>
+  <div class="header-actions">
+    <div class="live-badge">
+      <div class="live-dot"></div>
+      LIVE
+    </div>
+    <button class="btn btn-ghost" onclick="clearEditor()">Clear</button>
+    <button class="btn btn-ghost" onclick="copyCode()">Copy</button>
+    <button class="btn btn-accent" onclick="downloadHTML()">⬇ Download</button>
+  </div>
+</header>
+
+<div class="tabs-row">
+  <div class="tab active">
+    <span class="tab-dot html"></span>
+    index.html
+  </div>
+</div>
+
+<div class="main">
+  <div class="editor-panel" id="editorPanel">
+    <div class="editor-wrap">
+      <div class="line-numbers" id="lineNumbers">1</div>
+      <textarea id="editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" placeholder="<!-- Yahan apna HTML likhna shuru karo -->"></textarea>
+    </div>
+  </div>
+
+  <div class="resize-handle" id="resizeHandle"></div>
+
+  <div class="preview-panel">
+    <div class="preview-topbar">
+      <div class="browser-dots">
+        <span class="d1"></span>
+        <span class="d2"></span>
+        <span class="d3"></span>
+      </div>
+      <div class="url-bar">
+        🔒 <span>live-preview://localhost</span>
+      </div>
+    </div>
+    <iframe id="preview-iframe" title="Live Preview" sandbox="allow-scripts allow-same-origin allow-forms"></iframe>
+  </div>
+</div>
+
+<div class="statusbar">
+  <span class="status-item">⚡ Live Editor</span>
+  <span class="status-sep">|</span>
+  <span class="status-item" id="stat-lines">Lines: 1</span>
+  <span class="status-sep">|</span>
+  <span class="status-item" id="stat-chars">Chars: 0</span>
+  <span class="status-sep">|</span>
+  <span class="status-item" id="stat-cursor">Ln 1, Col 1</span>
+  <span class="status-sep">|</span>
+  <span class="status-item" id="stat-update">Ready</span>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const editor   = document.getElementById('editor');
+const iframe   = document.getElementById('preview-iframe');
+const lineNums = document.getElementById('lineNumbers');
+const statLines  = document.getElementById('stat-lines');
+const statChars  = document.getElementById('stat-chars');
+const statCursor = document.getElementById('stat-cursor');
+const statUpdate = document.getElementById('stat-update');
+const toast      = document.getElementById('toast');
+
+let debounceTimer;
+
+const STARTER = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meri Website</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      color: #eee;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+    }
+    h1 {
+      font-size: 3rem;
+      background: linear-gradient(to right, #7c6dfa, #fa6d8a);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 12px;
+    }
+    p {
+      color: #aaa;
+      font-size: 1.1rem;
+    }
+    .btn {
+      margin-top: 24px;
+      padding: 12px 28px;
+      background: #7c6dfa;
+      color: white;
+      border: none;
+      border-radius: 30px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    .btn:hover { transform: scale(1.05); }
+  </style>
+</head>
+<body>
+  <h1>Hello World! 🚀</h1>
+  <p>Meri pehli website — Live Editor se bani!</p>
+  <button class="btn" onclick="alert('Kya baat hai! 🎉')">Click Karo!</button>
+</body>
+</html>`;
+
+// Init
+editor.value = STARTER;
+updatePreview();
+updateLineNumbers();
+updateStats();
+
+// Live update
+editor.addEventListener('input', () => {
+  updateLineNumbers();
+  updateStats();
+  clearTimeout(debounceTimer);
+  statUpdate.textContent = 'Typing...';
+  debounceTimer = setTimeout(() => {
+    updatePreview();
+    statUpdate.textContent = 'Updated ✓';
+    setTimeout(() => { statUpdate.textContent = 'Ready'; }, 1500);
+  }, 300);
+});
+
+// Cursor position
+editor.addEventListener('keyup', updateCursor);
+editor.addEventListener('click', updateCursor);
+
+// Tab key support
+editor.addEventListener('keydown', (e) => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = editor.selectionStart, en = editor.selectionEnd;
+    editor.value = editor.value.substring(0, s) + '  ' + editor.value.substring(en);
+    editor.selectionStart = editor.selectionEnd = s + 2;
+    updateLineNumbers();
+    updateStats();
+    scheduleUpdate();
+  }
+});
+
+// Sync scroll of line numbers
+editor.addEventListener('scroll', () => {
+  lineNums.scrollTop = editor.scrollTop;
+});
+
+function updatePreview() {
+  const code = editor.value;
+  const content = code.trim().toLowerCase().startsWith('<!doctype') || code.trim().toLowerCase().startsWith('<html')
+    ? code
+    : `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{margin:16px;font-family:sans-serif;}</style></head><body>${code}</body></html>`;
+  iframe.srcdoc = content;
+}
+
+function updateLineNumbers() {
+  const lines = editor.value.split('\n').length;
+  lineNums.textContent = Array.from({length: lines}, (_, i) => i + 1).join('\n');
+  statLines.textContent = `Lines: ${lines}`;
+}
+
+function updateStats() {
+  statChars.textContent = `Chars: ${editor.value.length}`;
+}
+
+function updateCursor() {
+  const s = editor.selectionStart;
+  const text = editor.value.substring(0, s);
+  const lines = text.split('\n');
+  const ln = lines.length;
+  const col = lines[lines.length - 1].length + 1;
+  statCursor.textContent = `Ln ${ln}, Col ${col}`;
+}
+
+function scheduleUpdate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(updatePreview, 300);
+}
+
+function clearEditor() {
+  if (confirm('Sab code clear karna chahte ho?')) {
+    editor.value = '';
+    updatePreview();
+    updateLineNumbers();
+    updateStats();
+    showToast('Editor clear ho gaya!');
+  }
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(editor.value).then(() => {
+    showToast('Code copy ho gaya! ✓');
+  });
+}
+
+function downloadHTML() {
+  const blob = new Blob([editor.value], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'index.html';
+  a.click();
+  showToast('File download ho rahi hai! ⬇');
+}
+
+function showToast(msg) {
+  toast.textContent = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2500);
+}
+
+// Drag resize
+const handle = document.getElementById('resizeHandle');
+const panel = document.getElementById('editorPanel');
+let dragging = false;
+
+handle.addEventListener('mousedown', (e) => {
+  dragging = true;
+  handle.classList.add('dragging');
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!dragging) return;
+  const container = panel.parentElement;
+  const rect = container.getBoundingClientRect();
+  const newW = e.clientX - rect.left;
+  const pct = Math.min(Math.max(newW / rect.width * 100, 20), 80);
+  panel.style.width = pct + '%';
+});
+
+document.addEventListener('mouseup', () => {
+  dragging = false;
+  handle.classList.remove('dragging');
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+});
+</script>
+</body>
+</html>
